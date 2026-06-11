@@ -1,0 +1,492 @@
+{
+  "info": {
+    "name": "TrustVault API",
+    "description": "Complete API collection for TrustVault — Reusable KYC & Digital Identity Platform.\n\n## Setup\n1. Import this collection into Postman\n2. The `{{base_url}}` variable defaults to `http://localhost:5000/api/v1`\n3. Register a user first — tokens are auto-saved to variables\n4. All protected endpoints automatically use the saved access token\n\n## Token Flow\n- Register/Login → saves `access_token` and `refresh_token`\n- Refresh Token → rotates both tokens\n- Change Password → issues fresh tokens\n- Logout → invalidates refresh token",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Returns server status, MongoDB connection state, uptime, and memory usage.\n\n**Access:** Public — no authentication required."
+          },
+          "response": [
+            {
+              "name": "200 — Healthy",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"message\": \"Server is healthy 🟢\",\n  \"data\": {\n    \"service\": \"TrustVault API\",\n    \"version\": \"1.0.0\",\n    \"environment\": \"development\",\n    \"uptime\": \"42s\",\n    \"timestamp\": \"2026-06-09T12:00:00.000Z\",\n    \"database\": {\n      \"status\": \"connected\",\n      \"name\": \"trustvault\"\n    },\n    \"memory\": {\n      \"rss\": \"55.20 MB\",\n      \"heapUsed\": \"25.10 MB\"\n    }\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "",
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Has access token', () => pm.expect(res.data.accessToken).to.be.a('string'));",
+                  "pm.test('Has refresh token', () => pm.expect(res.data.refreshToken).to.be.a('string'));",
+                  "pm.test('Has user object', () => pm.expect(res.data.user).to.have.property('id'));",
+                  "",
+                  "if (res.data) {",
+                  "  pm.collectionVariables.set('access_token', res.data.accessToken);",
+                  "  pm.collectionVariables.set('refresh_token', res.data.refreshToken);",
+                  "  pm.collectionVariables.set('user_id', res.data.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Aadhavan Kumar\",\n  \"email\": \"aadhavan@trustvault.dev\",\n  \"password\": \"SecurePass123\",\n  \"phone\": \"+919876543210\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Creates a new user account with hashed password.\n\n**Validation:**\n- `fullName`: 2-100 chars, required\n- `email`: valid format, required, unique\n- `password`: min 8 chars, must contain a letter + a number\n- `phone`: optional, valid mobile format\n\n**Returns:** User profile + access token + refresh token.\nTokens are auto-saved to collection variables."
+          },
+          "response": [
+            {
+              "name": "201 — User Created",
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"statusCode\": 201,\n  \"message\": \"User registered successfully\",\n  \"data\": {\n    \"user\": {\n      \"id\": \"665f1a2b3c4d5e6f7a8b9c0d\",\n      \"fullName\": \"Aadhavan Kumar\",\n      \"email\": \"aadhavan@trustvault.dev\",\n      \"phone\": \"+919876543210\",\n      \"role\": \"user\",\n      \"kycStatus\": \"not_started\",\n      \"isEmailVerified\": false,\n      \"lastLogin\": null,\n      \"createdAt\": \"2026-06-09T12:00:00.000Z\"\n    },\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"refreshToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\"\n  }\n}"
+            },
+            {
+              "name": "409 — Email Exists",
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 409,\n  \"message\": \"A user with this email already exists\",\n  \"errors\": []\n}"
+            },
+            {
+              "name": "400 — Validation Error",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": \"Validation failed\",\n  \"errors\": [\n    { \"field\": \"password\", \"message\": \"Password must be at least 8 characters\" }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "",
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has access token', () => pm.expect(res.data.accessToken).to.be.a('string'));",
+                  "pm.test('Has refresh token', () => pm.expect(res.data.refreshToken).to.be.a('string'));",
+                  "",
+                  "if (res.data) {",
+                  "  pm.collectionVariables.set('access_token', res.data.accessToken);",
+                  "  pm.collectionVariables.set('refresh_token', res.data.refreshToken);",
+                  "  pm.collectionVariables.set('user_id', res.data.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"aadhavan@trustvault.dev\",\n  \"password\": \"SecurePass123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Authenticates with email + password.\n\n**Returns:** User profile + access token + refresh token.\nTokens are auto-saved to collection variables."
+          },
+          "response": [
+            {
+              "name": "200 — Login Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"message\": \"Logged in successfully\",\n  \"data\": {\n    \"user\": {\n      \"id\": \"665f1a2b3c4d5e6f7a8b9c0d\",\n      \"fullName\": \"Aadhavan Kumar\",\n      \"email\": \"aadhavan@trustvault.dev\",\n      \"role\": \"user\",\n      \"kycStatus\": \"not_started\"\n    },\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIs...\",\n    \"refreshToken\": \"eyJhbGciOiJIUzI1NiIs...\"\n  }\n}"
+            },
+            {
+              "name": "401 — Invalid Credentials",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": \"Invalid email or password\",\n  \"errors\": []\n}"
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "",
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has new access token', () => pm.expect(res.data.accessToken).to.be.a('string'));",
+                  "pm.test('Has new refresh token', () => pm.expect(res.data.refreshToken).to.be.a('string'));",
+                  "",
+                  "if (res.data) {",
+                  "  pm.collectionVariables.set('access_token', res.data.accessToken);",
+                  "  pm.collectionVariables.set('refresh_token', res.data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/refresh-token",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "refresh-token"]
+            },
+            "description": "Exchanges a valid refresh token for a new access + refresh token pair.\nUses **token rotation** — the old refresh token is invalidated after use.\n\nUses the `{{refresh_token}}` variable auto-saved from Register/Login."
+          },
+          "response": [
+            {
+              "name": "200 — Tokens Refreshed",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"message\": \"Tokens refreshed successfully\",\n  \"data\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIs...\",\n    \"refreshToken\": \"eyJhbGciOiJIUzI1NiIs...\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get My Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "",
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has user data', () => pm.expect(res.data).to.have.property('email'));",
+                  "pm.test('Password not exposed', () => pm.expect(res.data).to.not.have.property('password'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Returns the authenticated user's profile.\n\n**Access:** Private — requires `Authorization: Bearer <token>` header.\nVerifies the password is never exposed in the response."
+          },
+          "response": [
+            {
+              "name": "200 — Profile Retrieved",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"message\": \"User profile retrieved\",\n  \"data\": {\n    \"id\": \"665f1a2b3c4d5e6f7a8b9c0d\",\n    \"fullName\": \"Aadhavan Kumar\",\n    \"email\": \"aadhavan@trustvault.dev\",\n    \"phone\": \"+919876543210\",\n    \"role\": \"user\",\n    \"kycStatus\": \"not_started\",\n    \"isEmailVerified\": false\n  }\n}"
+            },
+            {
+              "name": "401 — No Token",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": \"Not authenticated — no token provided\",\n  \"errors\": []\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "",
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Name updated', () => pm.expect(res.data.fullName).to.equal('Aadhavan S Kumar'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Aadhavan S Kumar\",\n  \"phone\": \"+919876543211\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/update-profile",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "update-profile"]
+            },
+            "description": "Updates the authenticated user's profile fields.\n\n**Updatable fields:** `fullName`, `phone`, `email`.\nChanging email triggers `isEmailVerified = false` and checks uniqueness.\n\n**Access:** Private — requires JWT."
+          },
+          "response": [
+            {
+              "name": "200 — Profile Updated",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"message\": \"Profile updated successfully\",\n  \"data\": {\n    \"id\": \"665f1a2b3c4d5e6f7a8b9c0d\",\n    \"fullName\": \"Aadhavan S Kumar\",\n    \"email\": \"aadhavan@trustvault.dev\",\n    \"phone\": \"+919876543211\",\n    \"role\": \"user\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Change Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "",
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has new access token', () => pm.expect(res.data.accessToken).to.be.a('string'));",
+                  "pm.test('Has new refresh token', () => pm.expect(res.data.refreshToken).to.be.a('string'));",
+                  "",
+                  "if (res.data) {",
+                  "  pm.collectionVariables.set('access_token', res.data.accessToken);",
+                  "  pm.collectionVariables.set('refresh_token', res.data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"SecurePass123\",\n  \"newPassword\": \"NewSecurePass456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/change-password",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "change-password"]
+            },
+            "description": "Changes the user's password.\n\n**Requires:** Current password confirmation.\n**Security:** Invalidates all refresh tokens (forces re-login on other devices), then issues fresh tokens for the current session.\n**Validation:** New password must differ from current, min 8 chars, letter + number.\n\n**Access:** Private — requires JWT."
+          },
+          "response": [
+            {
+              "name": "200 — Password Changed",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"message\": \"Password changed successfully\",\n  \"data\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIs...\",\n    \"refreshToken\": \"eyJhbGciOiJIUzI1NiIs...\"\n  }\n}"
+            },
+            {
+              "name": "401 — Wrong Current Password",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"statusCode\": 401,\n  \"message\": \"Current password is incorrect\",\n  \"errors\": []\n}"
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.collectionVariables.set('access_token', '');",
+                  "pm.collectionVariables.set('refresh_token', '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Invalidates the user's refresh token in the database.\nClears saved tokens from Postman variables.\n\n**Access:** Private — requires JWT."
+          },
+          "response": [
+            {
+              "name": "200 — Logged Out",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"message\": \"Logged out successfully\",\n  \"data\": null\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Users (Admin)",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["users"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "description": "Returns a paginated list of all users.\n\n**Access:** Admin only."
+          },
+          "response": []
+        },
+        {
+          "name": "Get User By ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}"]
+            },
+            "description": "Returns a single user by MongoDB ObjectId.\n\n**Access:** Admin only."
+          },
+          "response": []
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"verifier\",\n  \"kycStatus\": \"verified\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}"]
+            },
+            "description": "Admin can update user role, KYC status, etc.\nPassword updates are blocked on this route.\n\n**Access:** Admin only."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}"]
+            },
+            "description": "Permanently deletes a user.\n\n**Access:** Admin only."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
